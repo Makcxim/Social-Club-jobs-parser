@@ -26,4 +26,4 @@ Issues = "https://github.com/Makcxim/RCSParser/issues"
 Source = "https://github.com/Makcxim/RCSParser"
 
 [tool.hatch.version]
-path = "RCSParser/__init__.py"
+path = "rcsparser/__init__.py"

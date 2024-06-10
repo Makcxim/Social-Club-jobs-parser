@@ -1,5 +1,5 @@
 from playwright.async_api import async_playwright
-from config import email, password, data_folder, debug
+from config import data_folder, debug, email, password
 from urllib.parse import parse_qs
 from typing import Optional
 from fake_useragent import UserAgent
@@ -36,7 +36,7 @@ async def logining(url: str):
             await btn.click()
 
             try:
-                await page.wait_for_selector('.loginform__submitActions__dWo_j > button', timeout=50000)
+                await page.wait_for_selector('.loginform__submitActions__dWo_j > button', timeout=500000)
                 await page.click('.loginform__submitActions__dWo_j > button')
             except Exception as e:
                 print(type(e), e)
@@ -51,11 +51,15 @@ async def logining(url: str):
             except Exception as e:
                 print("Verification not required")
 
-            await page.wait_for_selector('.FeedPostMessage__postCard__1uu_B, .UI__Card__card, .UI__Card__shadow',
-                                         timeout=50000)
+            await page.pause()
 
+            await page.wait_for_selector('.FeedPostMessage__postCard__1uu_B, .UI__Card__card, .UI__Card__shadow',
+                                         timeout=5000)
+
+            print("TEST")
             with open(data_folder / "cookies.json", "w") as f:
-                f.write(json.dumps(await context.cookies()))
+                print("govno")
+                f.write(json.dumps(await context.cookies(), indent=4))
 
         except Exception as e:
             print(type(e), e)
@@ -65,14 +69,26 @@ async def logining(url: str):
 
 
 async def get_user_info(headers: dict, nickname: str = "Makcxim", max_friends: int = 3, first_try: bool = True):
+    print(123)
     url = f"https://scapi.rockstargames.com/profile/getprofile?nickname={nickname}&maxFriends={max_friends}"
-    response = httpx.get(url, headers=headers).json()
+    params = {
+        "nickname": nickname,
+        "maxFriends": max_friends,
+    }
+    params = {key: value for key, value in params.items() if value is not None}
+    print(headers)
+    response = httpx.get("https://scapi.rockstargames.com/profile/getprofile/", params=params, headers=headers).json()
+    print("ANTON", response)
+    # print(httpx.get(url, headers=headers))
+    # response = httpx.get(url, headers=headers).json()
+    print(response)
     if not response['status'] and first_try:
         cookies = await refresh_access(open(data_folder / "cookies.json", "r").read())
         first_try = False
         cookies_data = {i['name']: i for i in json.loads(cookies)}
         headers['Authorization'] = f"Bearer {cookies_data['BearerToken']['value']}"
         return await get_user_info(headers, nickname, max_friends, first_try)
+    print(response)
     return response
 
 
@@ -131,37 +147,27 @@ async def refresh_access(old_cookies):
     old_cookies_data = {i['name']: i for i in json.loads(old_cookies)}
     url = 'https://socialclub.rockstargames.com/connect/refreshaccess'
     headers = {
-        'Accept': '*/*',
-        'Connection': 'keep-alive',
-        'Content-type': 'application/x-www-form-urlencoded; charset=utf-8',
-        'Origin': 'https://socialclub.rockstargames.com',
-        'Referer': 'https://socialclub.rockstargames.com/',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'same-origin',
-        'Sec-Fetch-Site': 'same-origin',
         'User-Agent': ua.random,
         'X-Requested-With': 'XMLHttpRequest',
-        'sec-ch-ua': '"Opera";v="99", "Chromium";v="113", "Not-A.Brand";v="24"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
     }
+    token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjQwMjFiOTUzLTFlYWItNGQ5ZC04YjJjLTllZTM0MDFjODRlZiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIyNDIwMzM0MDAiLCJzY0F1dGguU2NBdXRoVG9rZW4iOiJBQUFBQXJFUVdZQ3owalVtVGRMYi9hSGFTVFFNdTBjQVZ6OXBtRHZuNlhSbVFnUTZSUkhZRFI4ekxVYVhqbHVvTTViTVV1RDZ6ejluU3dEZnNCaWUrSDlPQ294WE8rQVdDcWFXWjlxamsxMVcxN0JTMmVtWGVIUzV5cFF6WTkxdDZVMUhOQmZ4N3RGZUphQ0ZsbUIxNU5jQVFuTE5ZaEU9Iiwic2NBdXRoLklzQU1pbm9yIjoiRmFsc2UiLCJzY0F1dGguTmlja25hbWUiOiJhbnRvbm92X2FudG9uX2FuIiwic2NBdXRoLkF2YXRhclVybCI6Imh0dHBzOi8vcHJvZC1hdmF0YXJzLmFrYW1haXplZC5uZXQvc3RvY2stYXZhdGFycy9uL2RlZmF1bHQucG5nIiwic2NBdXRoLklzRW1haWxWZXJpZmllZCI6IlRydWUiLCJzY0F1dGguS2VlcE1lU2lnbmVkSW4iOiJGYWxzZSIsInNjQXV0aC5Ub2tlblN0b3JhZ2VUdGwiOiIwIiwic2NBdXRoLlJkcjJBY2Nlc3MiOiIiLCJuYmYiOjE3MDU1NDc2ODIsImF1ZCI6WyJodHRwczovL3NvY2lhbGNsdWIucm9ja3N0YXJnYW1lcy5jb20iLCJodHRwczovL3NjYXBpLnJvY2tzdGFyZ2FtZXMuY29tIl0sInNjb3BlIjoic2NhcGk6KiIsImV4cCI6MTcwNTU0Nzk4MiwiaWF0IjoxNzA1NTQ3NjgyLCJpc3MiOiJodHRwczovL3NpZ25pbi5yb2Nrc3RhcmdhbWVzLmNvbSJ9.d3pkvgfoSOYBh0Z6o2JUFT8Mcb3N6U85GxSLha9RKBX6yCW7M21-SJaXomF8uJIr56jsdT5WeH300dnF_foJ1kCryKJlY9hemtU1el18at0nPqxC9P_0itRe3dTAQLN06PJe-UgCymKAnStaMJTKtkj8g4npd7y7zp5miNj58xTYl8dxBj_ytT1iroi3iOXXe4TtGEMakEmJbKWxg9pcyW5nLHMzrb0jVseiSP63aZzALZwQ1BKlk6wRKOmczEEiKrUWHrbO_0wQXhUrtYyNLOwA8_apCff0mOxeF3ZWXHlXrRO7sZRRjVpcfXZZSjJHAHwy9NmDB7QxnhhMVgnq4Q"
     data = {
         'accessToken': old_cookies_data['BearerToken']['value'],
     }
 
     cookies = {
-        "prod": old_cookies_data["prod"]["value"],
-        "RockStarWebSessionId": old_cookies_data["RockStarWebSessionId"]["value"],
-        "CSRFToken": old_cookies_data["CSRFToken"]["value"],
         "BearerToken": old_cookies_data["BearerToken"]["value"],
-        "TS01008f56": old_cookies_data["TS01008f56"]["value"],
-        "TS011be943": old_cookies_data["TS011be943"]["value"],
-    }
+    # }
 
+    print("REFRESHING")
+    print(old_cookies_data['BearerToken']['value'])
     try:
         r = httpx.post(url=url, headers=headers, data=data, cookies=cookies)
+        print(r)
+        print(1)
 
         if r.status_code == 401:
+            print("autism")
             await logining('https://signin.rockstargames.com/signin/user-form?cid=socialclub')
             new_cookies = open(data_folder / "cookies.json", "r").read()
         else:
@@ -170,10 +176,11 @@ async def refresh_access(old_cookies):
 
             old_cookies_data["BearerToken"]["value"] = new_token
             old_cookies_data["TS011be943"]["value"] = new_ts_token
-            new_cookies = json.dumps([i for x, i in old_cookies_data.items()])
+            new_cookies = json.dumps([i for x, i in old_cookies_data.items()], indent=4)
             with open(data_folder / "cookies.json", "w") as f:
+                print("govno")
                 f.write(new_cookies)
-
+        print("REFRESHING end")
         return new_cookies
     except Exception as e:
         print('ERROR', type(e), e)
@@ -192,11 +199,13 @@ async def parse_link(url: str, page_count: int = 1, page_size: int = 15, page_of
 
     cookies = open(data_folder / "cookies.json", "r").read()
     names = [i['name'] for i in json.loads(cookies)]
+    print("GAY", cookies)
 
     if 'BearerToken' not in names:
         await logining('https://signin.rockstargames.com/signin/user-form?cid=socialclub')
         cookies = open(data_folder / "cookies.json", "r").read()
 
+    print("GAY", cookies)
     cookies_data = {i['name']: i for i in json.loads(cookies)}
     headers = {
         "Authorization": f"Bearer {cookies_data['BearerToken']['value']}",
@@ -265,11 +274,6 @@ async def parse_filters(mission_type: Optional[str | None] = "",
     cookies_data = {i['name']: i for i in json.loads(cookies)}
     headers = {
         "Authorization": f"Bearer {cookies_data['BearerToken']['value']}",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Host": "scapi.rockstargames.com",
-        "Origin": "https://socialclub.rockstargames.com",
-        "Referer": "https://socialclub.rockstargames.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
         "X-Requested-With": "XMLHttpRequest"
     }
